@@ -195,7 +195,9 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   (`themes/*.json`, each palette as it is), each with its own six space
   colours. Pick one in
   the settings or in herdr-app's (any other theme works too: the space
-  colours are then its ANSI colours). JetBrains Mono in terminals.
+  colours are then its ANSI colours). Terminals keep your own font (herdr-app's
+  settings); this fork leaves the layout's JetBrains Mono out, so Hangul and
+  other wide scripts aren't drawn from a fallback font with gaps.
 
 ## Keys
 

@@ -4,7 +4,6 @@
   "preview": "layouts/orbit.svg",
   "titlebar": "system",
   "theme": "tokyo-night",
-  "font": "JetBrains Mono",
   "font_size": 14,
   "background": {
     "image": "mods/orbit/backgrounds/space.png",
