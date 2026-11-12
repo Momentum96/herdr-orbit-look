@@ -22,7 +22,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { run, theme, layout, spaces, machines, updates, shared, setShared, openOverlay, closeOverlay } from "herdr";
+import { run, theme, layout, spaces, machines, updates, shared, setShared, openOverlay, closeOverlay, window } from "herdr";
 import { look, glass, spaceLook, spaceSymbol, accentBand, probeColor } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius, zoom, viewport } from "./glass.js";
 import { System, bytes, pct, level } from "./system.js";
@@ -155,7 +155,7 @@ export default class OrbitStatus extends View {
     const L = layout();
     const sidebarOpen = find(L, "sidebar")?.hidden !== true;
 
-    const left = [ghost("sidebar", [icon(sidebarOpen ? "sidebar-open" : "sidebar")], () => run("layout.toggle", { id: "sidebar" }), "sidebar  ctrl+shift+b")];
+    const left = [ghost("sidebar", [icon(sidebarOpen ? "sidebar-open" : "sidebar")], () => run("layout.toggle", { id: "sidebar" }), `sidebar  ${window()?.platform === "macos" ? "cmd+b" : "ctrl+shift+b"}`)];
     const after = [];
     if (machines().find((m) => m.name === null)?.layout === "unavailable") after.push(text("herdr offline", t.ansi1));
     const settled = spaces().reduce((n, s) => n + s.tabs.filter((tb) => tb.settled).length, 0);

@@ -1,0 +1,26 @@
+{
+  "layout:orbit": {
+    "ctrl-tab": "orbit.recent",
+    "ctrl-shift-space": "orbit.switcher",
+    "cmd-1": "orbit.tab1",
+    "cmd-2": "orbit.tab2",
+    "cmd-3": "orbit.tab3",
+    "cmd-4": "orbit.tab4",
+    "cmd-5": "orbit.tab5",
+    "cmd-6": "orbit.tab6",
+    "cmd-7": "orbit.tab7",
+    "cmd-8": "orbit.tab8",
+    "cmd-9": "orbit.tab9",
+    "cmd-shift-]": "orbit.next",
+    "cmd-shift-[": "orbit.prev",
+    "ctrl-shift-tab": "orbit.prev",
+    "cmd-t": "orbit.new",
+    "cmd-shift-o": "orbit.right",
+    "cmd-w": "orbit.close",
+    "cmd-alt-left": "orbit.left-pane",
+    "cmd-alt-right": "orbit.right-pane",
+    "cmd-alt-shift-left": "orbit.move",
+    "cmd-alt-shift-right": "orbit.move",
+    "cmd-shift-,": "orbit.settings"
+  }
+}

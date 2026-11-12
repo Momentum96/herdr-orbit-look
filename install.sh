@@ -10,7 +10,9 @@
 #
 # keys.json's "layout:orbit" section (keys that apply only while the orbit
 # layout shows) is merged into the home's keys.json; the rest of it stays as
-# it is, and it's backed up before the first change.
+# it is, and it's backed up before the first change. On macOS keys.macos.json
+# is merged instead: the same commands on Cmd keys, so Ctrl-1..9 stay herdr's
+# space keys.
 #
 #   ./install.sh            install or update
 #   ./install.sh --remove   remove what this script installed (backups stay)
@@ -37,7 +39,9 @@ ours() { grep -qxF "$1" "$manifest"; }
 # takes them out).
 keys() {
   [[ -f $home/keys.json ]] || { echo "no $home/keys.json yet: start herdr-app once, then run this again for the keys"; return 0; }
-  python3 - "$home/keys.json" "$repo/keys.json" "$backup" "${1:-}" <<'EOF'
+  local src=$repo/keys.json
+  [[ $(uname) == Darwin ]] && src=$repo/keys.macos.json
+  python3 - "$home/keys.json" "$src" "$backup" "${1:-}" <<'EOF'
 import json, os, shutil, sys
 path, src, backup, mode = sys.argv[1:5]
 old = open(path).read()
@@ -145,7 +149,8 @@ gone=()
 while read -r rel; do
   [[ -n $rel && ! -e $repo/$rel ]] && gone+=("$rel")
 done <"$manifest"
-for rel in "${gone[@]}"; do
+# (${gone[@]+...}: macOS's bash 3.2 calls an empty array unbound under set -u.)
+for rel in ${gone[@]+"${gone[@]}"}; do
   rm -rf "${home:?}/$rel"
   grep -vxF "$rel" "$manifest" >"$manifest.tmp" || true
   mv "$manifest.tmp" "$manifest"
@@ -162,4 +167,6 @@ if [[ ! -e $home/orbit-windows.json ]]; then
   cp "$repo/defaults/orbit-windows.json" "$home/orbit-windows.json"
   echo "created $home/orbit-windows.json (the picker's list: edit it, or use its \"configure windows…\" row)"
 fi
-echo "done: switch to the orbit layout in herdr-app's settings (or ctrl-shift-l)"
+switch=ctrl-shift-l
+[[ $(uname) == Darwin ]] && switch=cmd-shift-l
+echo "done: switch to the orbit layout in herdr-app's settings (or $switch)"
