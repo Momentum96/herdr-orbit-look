@@ -7,6 +7,10 @@ This is an unofficial layout. It is not affiliated with or endorsed by Herdr.
 It uses only what herdr-app offers to everyone (a layout, mods and a theme)
 and doesn't change the app. Made for herdr-app 0.1.11.
 
+**This fork** adds macOS support, checked on herdr-app 0.1.15 (Apple Silicon):
+the cpu, ram and disk widgets, the background file dialog, `install.sh` on
+macOS's bash 3.2 and a Cmd keyset. See [macOS](#macos).
+
 **Version 4**. See [Updating](#updating).
 
 ![Orbit: the sidebar, two panes with the picker open in the right one, the taskbar with a pinned space](preview.png)
@@ -42,6 +46,19 @@ picker below). Without the file the list is empty; to start one, copy
 it), keeps a list of what it copied, moves aside anything of yours under the same name, and
 `./install.sh --remove` takes it away again. It is a convenience: nothing
 needs it.
+
+### macOS
+
+- `./install.sh` runs on the system bash (3.2) and merges `keys.macos.json`
+  instead of `keys.json`: the same commands on Cmd keys (see Keys), so
+  Ctrl-1..9 stay herdr's space keys. Merging by hand, use that file.
+- The cpu, ram and disk widgets read the machine through `python3` (ctypes into
+  libSystem; the Command Line Tools' or Homebrew's) once a second and BSD
+  `df -P` every 30 s. Without a real `python3` (only the stub that asks to
+  install the Command Line Tools) cpu and ram stay hidden; disk still shows.
+  ram is counted as Activity Monitor does: app memory, wired and compressed.
+- "background…" opens the macOS file dialog (`osascript`'s `choose file`).
+- The layout switch is `cmd-shift-l`, the sidebar `cmd-b`.
 
 ## Updating
 
@@ -202,6 +219,24 @@ rest (`orbit.split`, `orbit.side-panel`, `orbit.add`, `orbit.window`).
 herdr-app's own keys work as usual for everything else (`ctrl-shift-b` the
 sidebar, `ctrl-shift-l` the layout).
 
+On macOS, `keys.macos.json` (what `./install.sh` merges there):
+
+| Keys | What they do |
+|---|---|
+| `cmd-1` … `cmd-9` | its tab N |
+| `cmd-shift-]` / `cmd-shift-[`, `ctrl-shift-tab` | its next / previous tab |
+| `cmd-t` | a new terminal in it |
+| `cmd-shift-o` | a "new window" tab in the right pane |
+| `cmd-w` | close its shown tab (a terminal asks; again confirms) |
+| `cmd-alt-left` / `cmd-alt-right` | the keys to the left / right pane |
+| `cmd-alt-shift-left`, `cmd-alt-shift-right` | move the shown terminal tab to the other pane |
+| `ctrl-tab` | back to the space shown before this one |
+| `ctrl-shift-space` | the recent spaces |
+| `cmd-shift-,` | Orbit look settings, in the right pane |
+
+Option-letter and Option-bracket keys are left to typing (they make characters
+on Mac keyboards), and `cmd-,` stays herdr-app's settings.
+
 ## What the mods run and read
 
 - `orbit-spaces` runs `git status` and `git rev-parse` in each space's folder
@@ -211,7 +246,7 @@ sidebar, `ctrl-shift-l` the layout).
   repo's colour; `orbit-sidebar-footer` and `orbit-dialogs` (the menu) run it
   to offer the worktree items.
 - `orbit-dialogs` (the settings), only when you click "background…": runs
-  KDE's `kdialog` or, without it, GNOME's `zenity` to open a file dialog
+  `osascript` on macOS, else KDE's `kdialog` or, without it, GNOME's `zenity` to open a file dialog
   (from a toolbox or a flatpak, the host's, through `flatpak-spawn --host`);
   with neither, it opens herdr-app's folder picker and lists the pictures in
   the folder you pick (`ls`). The picture you choose is copied (`cp`) into
@@ -223,7 +258,9 @@ sidebar, `ctrl-shift-l` the layout).
   or a herdr-app command with its args). "configure windows…" writes a prompt
   to the clipboard.
 - `orbit-status` reads `/proc/stat`, `/proc/loadavg` and `/proc/meminfo`, and
-  runs `df` on your home folder every 30 s.
+  runs `df` on your home folder every 30 s. On macOS it runs `python3` once a
+  second instead of reading /proc (and `xcode-select -p` once, to tell a real
+  python3 from the stub), and `df -P`.
 - `orbit` reads and writes `layouts/orbit.json` in herdr-app's home: it puts
   the settings, the shown theme's glass colours, the space's outline colour,
   the right pane's terminals and views and the side panel's views there.
