@@ -4,9 +4,41 @@
 //
 //   const sys = new System(); sys.start(cx);   then sys.cpu, sys.cores, ...
 //
-// /proc every second and `df` every 30 s (Linux; elsewhere they stay null).
+// /proc every second and `df` every 30 s on Linux; on macOS a small python3
+// (ctypes into libSystem: host_processor_info, host_statistics64, sysctl) every
+// second and BSD `df -P`. Elsewhere, or without python3, they stay null.
 
-import { readTextFile, exec, home, shared } from "herdr";
+import { readTextFile, exec, home, shared, window } from "herdr";
+
+// macOS: one line of JSON, the ticks of each core [user, system, idle, nice],
+// the load, and memory as Activity Monitor counts it (app + wired + compressed).
+const MAC_SAMPLE = String.raw`import ctypes as C, os, json
+L = C.CDLL("/usr/lib/libSystem.dylib")
+h = L.mach_host_self()
+n = C.c_uint(); p = C.POINTER(C.c_int)(); k = C.c_uint()
+L.host_processor_info(h, 2, C.byref(n), C.byref(p), C.byref(k))
+cores = [[p[i * 4 + j] for j in range(4)] for i in range(n.value)]
+U, Q = C.c_uint32, C.c_uint64
+class VM(C.Structure):
+    _fields_ = [(f, U) for f in ("free", "active", "inactive", "wire")] + [(f, Q) for f in ("zf", "re", "pi", "po", "fa", "cow", "lu", "hi", "pu")] + [("purgeable", U), ("spec", U)] + [(f, Q) for f in ("dc", "co", "si", "so")] + [(f, U) for f in ("compressor", "thr", "ext", "internal")] + [("tu", Q)]
+v = VM(); c = U(C.sizeof(VM) // 4)
+L.host_statistics64(h, 4, C.byref(v), C.byref(c))
+def sysctl(name, t):
+    x = t(); s = C.c_size_t(C.sizeof(x))
+    L.sysctlbyname(name.encode(), C.byref(x), C.byref(s), None, C.c_size_t(0))
+    return x
+class SW(C.Structure):
+    _fields_ = [("total", Q), ("avail", Q), ("used", Q), ("pagesize", U), ("enc", C.c_bool)]
+pg = sysctl("vm.pagesize", Q).value
+sw = sysctl("vm.swapusage", SW)
+print(json.dumps({"cores": cores, "load": os.getloadavg(), "used": (v.internal - v.purgeable + v.wire + v.compressor) * pg,
+  "total": sysctl("hw.memsize", Q).value, "swapUsed": sw.used, "swapTotal": sw.total}))`;
+
+// The python3 to run MAC_SAMPLE with, or null. /usr/bin/python3 without the
+// Command Line Tools is a stub that opens an install prompt: never run that one.
+const MAC_PYTHON = `p=$(command -v python3) || exit 1
+if [ "$p" = /usr/bin/python3 ] && ! xcode-select -p >/dev/null 2>&1; then exit 1; fi
+printf %s "$p"`;
 
 // `17G`, `7.1G`, `512M`: binary units, one decimal under 10.
 export function bytes(n) {
@@ -34,6 +66,8 @@ export class System {
   }
 
   start(cx) {
+    this.mac = window()?.platform === "macos";
+    this.python = undefined; // macOS: the python3 to sample with, null when there's none
     this.sample(cx);
     this.sampleDisk(cx);
     // cpu use needs two samples: the second soon, so a popup has it at once.
@@ -43,6 +77,7 @@ export class System {
   }
 
   sample(cx) {
+    if (this.mac) return this.sampleMac(cx);
     cx.spawn(async (cx) => {
       try {
         const stat = (await readTextFile("/proc/stat")) ?? "";
@@ -76,9 +111,53 @@ export class System {
     });
   }
 
+  // Per-core ticks turned into use as on Linux: [all, ...each core].
+  cpuFrom(now) {
+    const use = (n, p) => (p && n.total > p.total ? 1 - (n.idle - p.idle) / (n.total - p.total) : null);
+    if (this.prev && now.length) {
+      const all = use(now[0], this.prev[0]);
+      if (all !== null) this.cpu = all;
+      this.cores = now.slice(1).map((c, i) => use(c, this.prev[i + 1]) ?? 0);
+    }
+    this.prev = now;
+  }
+
+  sampleMac(cx) {
+    if (this.busy) return; // one python at a time, however slow the machine is
+    this.busy = true;
+    cx.spawn(async (cx) => {
+      try {
+        if (this.python === undefined) {
+          const r = await exec("sh", ["-c", MAC_PYTHON]);
+          this.python = r.code === 0 && r.stdout ? r.stdout : null;
+        }
+        if (this.python) {
+          const r = await exec(this.python, ["-S", "-c", MAC_SAMPLE]);
+          const d = JSON.parse(r.stdout);
+          const cores = d.cores.map(([u, s, i, n]) => ({ idle: i, total: u + s + i + n }));
+          const all = cores.reduce((a, c) => ({ idle: a.idle + c.idle, total: a.total + c.total }), { idle: 0, total: 0 });
+          this.cpuFrom([all, ...cores]);
+          if (d.load?.length === 3) this.load = d.load;
+          if (d.total) this.mem = { used: d.used, total: d.total, available: d.total - d.used, swapUsed: d.swapUsed, swapTotal: d.swapTotal };
+        }
+      } catch (_) { /* those widgets stay hidden */ }
+      this.busy = false;
+      cx.notify();
+    });
+  }
+
   sampleDisk(cx) {
     cx.spawn(async (cx) => {
       try {
+        if (this.mac) {
+          // BSD df: 1024-blocks, used, available; the mount point may have spaces.
+          const r = await exec("df", ["-P", "-k", home()]);
+          const f = r.stdout.trim().split("\n").pop().trim().split(/\s+/);
+          this.disk = { used: Number(f[2]) * 1024, free: Number(f[3]) * 1024, total: Number(f[1]) * 1024, path: f.slice(5).join(" ") };
+          if (Number.isNaN(this.disk.used)) this.disk = null;
+          cx.notify();
+          return;
+        }
         const r = await exec("df", ["-B1", "--output=used,avail,size,target", home()]);
         const [used, free, total, path] = r.stdout.trim().split("\n").pop().trim().split(/\s+/);
         this.disk = { used: Number(used), free: Number(free), total: Number(total), path };
