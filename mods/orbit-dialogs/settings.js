@@ -6,7 +6,8 @@
 // once. Opened in the right pane ("Orbit look settings", the orbit mod's
 // openSettings), as other views are. Props: { dialog: "settings" }.
 //
-// "background…" opens a file dialog: KDE's kdialog, else GNOME's zenity (from
+// "background…" opens a file dialog: macOS's own (osascript's choose file),
+// KDE's kdialog, else GNOME's zenity (from
 // a toolbox or a flatpak, the host's, through flatpak-spawn); with neither,
 // herdr-app's own folder picker, and the pictures in the chosen folder show
 // here to pick from. The picture is copied into herdr-app's home
@@ -37,7 +38,8 @@ run() { if command -v "$1" >/dev/null 2>&1; then "$@";
   elif command -v flatpak-spawn >/dev/null 2>&1 && flatpak-spawn --host sh -c "command -v $1" >/dev/null 2>&1; then flatpak-spawn --host "$@";
   else return 3; fi; }
 has() { command -v "$1" >/dev/null 2>&1 || { command -v flatpak-spawn >/dev/null 2>&1 && flatpak-spawn --host sh -c "command -v $1" >/dev/null 2>&1; }; }
-if has kdialog; then set -- kdialog --title background --getopenfilename "$start" "Pictures (*.png *.jpg *.jpeg *.webp)"
+if [ "$(uname)" = Darwin ]; then set -- osascript -e activate -e "POSIX path of (choose file with prompt \\"background\\" of type {\\"public.png\\", \\"public.jpeg\\", \\"org.webmproject.webp\\"} default location (POSIX file \\"$start\\"))"
+elif has kdialog; then set -- kdialog --title background --getopenfilename "$start" "Pictures (*.png *.jpg *.jpeg *.webp)"
 elif has zenity; then set -- zenity --file-selection --title=background --filename="$start/" "--file-filter=Pictures | *.png *.jpg *.jpeg *.webp"
 else exit 3; fi
 rm -f "$out" "$out.part"
